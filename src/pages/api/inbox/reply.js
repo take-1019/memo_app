@@ -20,7 +20,8 @@ export default async function handler(req, res) {
 
 	try {
 		const provider = getProviderFor(conversation);
-		const message = await provider.sendReply(conversation, text.trim(), { threadTs });
+		const recentMessages = await store.listMessages(conversationId, { limit: 20 });
+		const message = await provider.sendReply(conversation, text.trim(), { threadTs, recentMessages });
 		await store.upsertMessages([message]);
 		await store.markRead(conversationId);
 		if (provider === demoProvider) demoProvider.scheduleAutoReply(store, conversation);

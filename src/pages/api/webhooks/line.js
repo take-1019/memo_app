@@ -1,5 +1,6 @@
 import { lineProvider } from "lib/inbox/providers/line";
 import { getStore } from "lib/inbox/store";
+import { readRawBody } from "lib/inbox/signature";
 
 /**
  * LINE Messaging API の Webhook 受信口。
@@ -7,22 +8,13 @@ import { getStore } from "lib/inbox/store";
  */
 export const config = { api: { bodyParser: false } };
 
-const readRawBody = (req) =>
-	new Promise((resolve, reject) => {
-		const chunks = [];
-		req.on("data", (c) => chunks.push(c));
-		req.on("end", () => resolve(Buffer.concat(chunks)));
-		req.on("error", reject);
-	});
-
 export default async function handler(req, res) {
 	if (req.method !== "POST") {
 		res.setHeader("Allow", "POST");
 		return res.status(405).end();
 	}
 	const raw = await readRawBody(req);
-	const signature = req.headers["x-line-signature"];
-	if (!lineProvider.verifySignature(raw, signature)) {
+	if (!lineProvider.verifySignature(raw, req.headers["x-line-signature"])) {
 		return res.status(401).json({ error: "署名が一致しません" });
 	}
 	let body;
@@ -31,8 +23,7 @@ export default async function handler(req, res) {
 	} catch (_) {
 		return res.status(400).json({ error: "invalid json" });
 	}
-	// LINE は 200 を素早く返す必要があるため、取り込みは待たずに応答する
-	res.status(200).json({ ok: true });
+	// サーバーレス環境では応答後の処理が打ち切られるため、取り込んでから応答する
 	try {
 		const { conversations, messages } = await lineProvider.ingestWebhookEvents(body.events || []);
 		const store = getStore();
@@ -41,4 +32,5 @@ export default async function handler(req, res) {
 	} catch (err) {
 		console.error("[webhooks/line]", err);
 	}
+	res.status(200).json({ ok: true });
 }

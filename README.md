@@ -70,9 +70,21 @@ yarn dev                     # http://localhost:3000
 
 ### Vercel にデプロイする場合
 - 上記の環境変数を Project Settings に登録
-- `INBOX_PASSWORD` を必ず設定（画面・API がパスワードで保護されます）
-- `vercel.json` の Cron（5 分ごとに `/api/inbox/sync`）を使う場合は `CRON_SECRET` も設定
+- `INBOX_PASSWORD` を必ず設定（本番で未設定だと、チャット保護のため API が止まります）
+- `vercel.json` の Cron は 1 日 1 回 `/api/inbox/sync` を実行します（無料プランの上限）。`CRON_SECRET` も設定してください
+- 画面を開いている間は 1 分ごとに自動同期されます
 - メモリ保存はサーバーレスでは保持されないため、Supabase を設定してください
+
+## 無料で運用する場合
+
+| サービス | 無料枠 | 注意点 |
+|---|---|---|
+| Vercel Hobby | 0 円 | 個人・非商用利用のみ。仕事で使うなら Pro（月 20 ドル）が規約上必要。Cron は 1 日 1 回まで |
+| Supabase Free | 0 円 | DB 500MB。1 週間アクセスが無いと一時停止（1 日 1 回の Cron で防止） |
+| Slack | 0 円 | 無料ワークスペースは直近 90 日分の履歴のみ |
+| Chatwork API | 0 円 | 5 分間に 300 回まで。更新のあったルームだけ取得して節約しています |
+| LINE Messaging API | 0 円 | プッシュ送信は月 200 通まで。受信から約 1 分以内の返信は無料の応答メッセージで送ります |
+| Discord Bot | 0 円 | 特になし |
 
 ## 構成
 
