@@ -1,6 +1,6 @@
 # 統合チャット受信箱（Unified Chat Inbox）
 
-Slack・Chatwork・LINE 公式アカウント・Discord のメッセージを **1 つの画面に集約**し、
+Slack・Chatwork・LINE 公式アカウント・Discord・Microsoft Teams のメッセージを **1 つの画面に集約**し、
 その場から **返信まで**できる Next.js アプリです。
 
 ```
@@ -19,7 +19,7 @@ Slack・Chatwork・LINE 公式アカウント・Discord のメッセージを **
 
 - 複数サービスの会話を最新順に一覧表示（サービス別・未読のみ・キーワード検索）
 - 会話を開くとスレッド表示、未読を自動で既読に
-- 返信欄から送信すると、その会話のサービス（Slack / Chatwork / LINE / Discord）に **連携アカウントとして投稿**
+- 返信欄から送信すると、その会話のサービス（Slack / Chatwork / LINE / Discord / Teams）に **連携アカウントとして投稿**（Teams はあなた本人として投稿）
 - 定期同期（1 分ごと）＋ Webhook（LINE / Slack）で新着を反映、15 秒ごとに画面を自動更新
 - 保存先は Supabase（本番）またはメモリ（開発）。未設定ならデモデータで動作
 - `INBOX_PASSWORD` による簡易アクセス制限
@@ -63,6 +63,29 @@ yarn dev                     # http://localhost:3000
 2. Bot をサーバーに招待（権限: View Channels / Read Message History / Send Messages）
 3. Bot Token を `DISCORD_BOT_TOKEN`、サーバー ID を `DISCORD_GUILD_ID` に設定
 
+### Microsoft Teams
+職場または学校の Microsoft 365 アカウントの Teams が対象です。個人用 Microsoft アカウントの Teams（無料版）は Microsoft Graph が対応していないため使えません。
+
+1. https://entra.microsoft.com を開き、**アプリの登録** > **新規登録**
+   - 名前: 任意（例: 統合チャット受信箱）
+   - サポートされているアカウントの種類: 自分の会社だけで使うなら「この組織ディレクトリのみ」、複数の会社のアカウントを使うなら「任意の組織ディレクトリ内のアカウント」
+   - リダイレクト URI: プラットフォーム「Web」で `https://<ドメイン>/api/auth/microsoft/callback`
+     （ローカルで試す場合は `http://localhost:3000/api/auth/microsoft/callback` も追加）
+2. **概要** の「アプリケーション (クライアント) ID」を `MS_CLIENT_ID` に設定
+   - 「この組織ディレクトリのみ」で登録した場合は、「ディレクトリ (テナント) ID」を `MS_TENANT_ID` に設定
+3. **証明書とシークレット** > **新しいクライアント シークレット** を作成し、表示された「値」を `MS_CLIENT_SECRET` に設定
+   - シークレットには有効期限があります（最長 24 か月）。更新したら受信箱で再サインインしてください
+4. **API のアクセス許可** > **アクセス許可の追加** > **Microsoft Graph** > **委任されたアクセス許可** で次を追加
+   - `offline_access` `User.Read` `Chat.ReadWrite`
+   - チャンネルも取り込む場合は `Team.ReadBasic.All` `Channel.ReadBasic.All` `ChannelMessage.Read.All` `ChannelMessage.Send` を追加し、`MS_ENABLE_CHANNELS=1` を設定。`ChannelMessage.Read.All` は IT 管理者の同意が必要です
+5. 再デプロイして受信箱を開き、**Microsoft でサインイン** を押す
+
+補足
+- 取り込むのは最近やりとりのあったチャット 50 件までです。最終メッセージが変わったチャットだけ取得し直します
+- 返信はあなた本人のアカウントから送られます
+- 会社の設定で「ユーザーによるアプリへの同意」が禁止されている場合は、サインイン時に管理者の承認が必要と表示されます
+- ログイン情報は暗号化して Supabase の `inbox_accounts` テーブルに保存します。Vercel で使う場合は Supabase が必須です
+
 ### Supabase（本番の保存先）
 1. `supabase/schema.sql` を Supabase の **SQL Editor** で実行
 2. `NEXT_PUBLIC_SUPABASE_URL` と `SUPABASE_SERVICE_ROLE_KEY`（Settings > API）を設定
@@ -85,6 +108,7 @@ yarn dev                     # http://localhost:3000
 | Chatwork API | 0 円 | 5 分間に 300 回まで。更新のあったルームだけ取得して節約しています |
 | LINE Messaging API | 0 円 | プッシュ送信は月 200 通まで。受信から約 1 分以内の返信は無料の応答メッセージで送ります |
 | Discord Bot | 0 円 | 特になし |
+| Microsoft Teams | 0 円 | Entra ID のアプリ登録と Graph API の委任アクセスは無料。Microsoft 365 の職場・学校アカウントが必要 |
 
 ## 構成
 
@@ -94,14 +118,19 @@ lib/inbox/
   store.js             保存層（Supabase / メモリ）
   sync.js              全サービス同期
   auth.js              簡易認証
+  config.js            各サービスの設定有無
+  microsoft.js         Microsoft サインインと Graph API 呼び出し
+  secrets.js           ログイン情報の暗号化
   providers/
-    slack.js chatwork.js line.js discord.js   各サービスのアダプタ
+    slack.js chatwork.js line.js discord.js teams.js   各サービスのアダプタ
     demo.js            デモデータ
     index.js           プロバイダ登録
 src/pages/api/inbox/
   status.js conversations.js messages.js reply.js read.js sync.js
 src/pages/api/webhooks/
   line.js slack.js
+src/pages/api/auth/microsoft/
+  start.js callback.js disconnect.js   Teams のサインイン
 components/inbox/
   Sidebar.jsx ConversationList.jsx ThreadView.jsx LoginGate.jsx useInbox.js
 src/pages/index.jsx    受信箱画面

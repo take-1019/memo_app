@@ -1,11 +1,13 @@
 import { SERVICES } from "lib/inbox/types";
 import { ServiceBadge } from "./ServiceBadge";
 
-export const Sidebar = ({ status, filter, setFilter, onSync, syncing, lastSyncedAt }) => {
+export const Sidebar = ({ status, filter, setFilter, onSync, syncing, lastSyncedAt, onConnectTeams, onDisconnectTeams }) => {
 	const summary = status?.summary || {};
 	const totalUnread = Object.values(summary).reduce((n, s) => n + s.unread, 0);
 	const totalAll = Object.values(summary).reduce((n, s) => n + s.total, 0);
 	const providers = status?.providers || [];
+	const teams = providers.find((p) => p.id === "teams");
+	const showTeamsAccount = !status?.demo && teams?.configured;
 
 	const Item = ({ active, onClick, children, count }) => (
 		<button
@@ -58,11 +60,36 @@ export const Sidebar = ({ status, filter, setFilter, onSync, syncing, lastSynced
 										<ServiceBadge service={s.id} />
 										<span className={configured ? "" : "text-gray-400"}>{s.label}</span>
 										{!configured && <span className="text-[10px] text-gray-400">未設定</span>}
+										{configured && p?.needsLogin && !status?.demo && !p.connected && <span className="text-[10px] text-amber-600">未接続</span>}
 									</Item>
 								);
 							})}
 					</div>
 				</div>
+				{showTeamsAccount && (
+					<div className="rounded-lg border border-gray-200 px-3 py-2.5 text-xs">
+						<p className="mb-1.5 flex items-center gap-1.5 font-semibold text-gray-700">
+							<ServiceBadge service="teams" /> Teams アカウント
+						</p>
+						{teams.connected ? (
+							<>
+								<p className="truncate text-gray-600" title={teams.user?.email || ""}>
+									{teams.user?.name || teams.user?.email || "接続中"}
+								</p>
+								<button onClick={onDisconnectTeams} className="mt-1.5 text-gray-400 underline hover:text-gray-600">
+									接続を解除
+								</button>
+							</>
+						) : (
+							<>
+								{teams.error && <p className="mb-1.5 text-red-600">{teams.error}</p>}
+								<button onClick={onConnectTeams} className="w-full rounded-md bg-[#5B5FC7] px-2 py-1.5 font-semibold text-white hover:opacity-90">
+									Microsoft でサインイン
+								</button>
+							</>
+						)}
+					</div>
+				)}
 			</nav>
 
 			<div className="border-t border-gray-200 px-4 py-3 text-xs text-gray-500">

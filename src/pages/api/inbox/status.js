@@ -16,12 +16,28 @@ export default async function handler(req, res) {
 	const demo = isDemoMode();
 	if (demo) await ensureDemoData(store);
 	const summary = await store.summary();
+	const providers = await Promise.all(
+		ALL_PROVIDERS.map(async (p) => {
+			const info = { id: p.id, label: p.label, configured: p.isConfigured(), webhookOnly: Boolean(p.webhookOnly), needsLogin: Boolean(p.needsLogin) };
+			if (p.needsLogin && info.configured && !demo) {
+				try {
+					const conn = await p.getConnection();
+					info.connected = conn.connected;
+					info.user = conn.user ? { name: conn.user.name, email: conn.user.email } : null;
+				} catch (err) {
+					info.connected = false;
+					info.error = err.message;
+				}
+			}
+			return info;
+		})
+	);
 	res.status(200).json({
 		authEnabled,
 		authed: true,
 		demo,
 		store: store.kind,
-		providers: ALL_PROVIDERS.map((p) => ({ id: p.id, label: p.label, configured: p.isConfigured(), webhookOnly: Boolean(p.webhookOnly) })),
+		providers,
 		summary,
 	});
 }

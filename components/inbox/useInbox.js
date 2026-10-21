@@ -141,8 +141,29 @@ export const useInbox = () => {
 		};
 	}, [status?.authed, refresh, sync]);
 
+	/** Microsoft のサインイン画面へ移動する */
+	const connectTeams = useCallback(async () => {
+		try {
+			const { url } = await api("/api/auth/microsoft/start", { method: "POST" });
+			window.location.href = url;
+		} catch (err) {
+			setError(err.message);
+		}
+	}, []);
+
+	const disconnectTeams = useCallback(async () => {
+		try {
+			await api("/api/auth/microsoft/disconnect", { method: "POST" });
+			await loadStatus();
+		} catch (err) {
+			setError(err.message);
+		}
+	}, [loadStatus]);
+
 	return {
 		status,
+		connectTeams,
+		disconnectTeams,
 		conversations,
 		filter,
 		setFilter,

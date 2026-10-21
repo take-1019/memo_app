@@ -137,7 +137,11 @@ export const ThreadView = ({ thread, onReply, onBack, demo }) => {
 					</button>
 				</div>
 				<p className="mt-1.5 text-[11px] text-gray-400">
-					{demo ? "デモモード: 外部には送信されません。" : `この返信は ${serviceLabel} に連携アカウントから送信されます。`}
+					{demo
+						? "デモモード: 外部には送信されません。"
+						: conversation.service === "teams"
+						? "この返信はあなたの Microsoft アカウントから Teams に送信されます。"
+						: `この返信は ${serviceLabel} に連携アカウントから送信されます。`}
 				</p>
 			</footer>
 		</section>
