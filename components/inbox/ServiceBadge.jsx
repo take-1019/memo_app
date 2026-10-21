@@ -1,6 +1,6 @@
 import { SERVICES } from "lib/inbox/types";
 
-const INITIALS = { slack: "S", chatwork: "C", line: "L", discord: "D", demo: "?" };
+const INITIALS = { slack: "S", chatwork: "C", line: "L", discord: "D", teams: "T", demo: "?" };
 
 export const ServiceBadge = ({ service, size = "sm", withLabel = false }) => {
 	const info = SERVICES[service] || SERVICES.demo;

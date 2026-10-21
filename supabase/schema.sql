@@ -39,3 +39,12 @@ create index if not exists inbox_conversations_last_message_idx on public.inbox_
 -- anon キーからの直接アクセスを防ぐため RLS を有効化し、ポリシーは作成しない。
 alter table public.inbox_conversations enable row level security;
 alter table public.inbox_messages enable row level security;
+
+-- 連携アカウントのログイン情報（Teams の Microsoft サインインなど）。
+-- secret はサーバー側で AES-256-GCM 暗号化した文字列。
+create table if not exists public.inbox_accounts (
+  id         text primary key,                     -- "teams" など
+  secret     text not null,
+  updated_at timestamptz not null default now()
+);
+alter table public.inbox_accounts enable row level security;

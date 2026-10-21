@@ -1,4 +1,6 @@
+import { useEffect, useState } from "react";
 import Head from "next/head";
+import { useRouter } from "next/router";
 import { Sidebar } from "components/inbox/Sidebar";
 import { ConversationList } from "components/inbox/ConversationList";
 import { ThreadView } from "components/inbox/ThreadView";
@@ -8,6 +10,26 @@ import { useInbox } from "components/inbox/useInbox";
 const Home = () => {
 	const inbox = useInbox();
 	const { status, error } = inbox;
+	const router = useRouter();
+	const [notice, setNotice] = useState(null);
+
+	// Microsoft サインインから戻ってきたときの結果表示
+	useEffect(() => {
+		if (!router.isReady) return;
+		const { teams, teams_user: teamsUser, teams_error: teamsError } = router.query;
+		if (!teams && !teamsError) return;
+		if (teams === "connected") {
+			setNotice({ type: "ok", text: `Teams に接続しました${teamsUser ? `（${teamsUser}）` : ""}。チャットを取り込んでいます…` });
+			inbox.sync();
+		} else if (teamsError) {
+			setNotice({ type: "error", text: String(teamsError) });
+		}
+		router.replace("/", undefined, { shallow: true });
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [router.isReady]);
+
+	const teams = status?.providers?.find((p) => p.id === "teams");
+	const teamsNeedsLogin = Boolean(status && !status.demo && teams?.configured && !teams.connected);
 
 	if (status && status.authEnabled && !status.authed) {
 		return (
@@ -36,6 +58,22 @@ const Home = () => {
 					</div>
 				)}
 				{error && <div className="bg-red-100 px-4 py-1.5 text-center text-xs text-red-800">{error}</div>}
+				{notice && (
+					<div className={`flex items-center justify-center gap-3 px-4 py-1.5 text-xs ${notice.type === "ok" ? "bg-green-100 text-green-900" : "bg-red-100 text-red-800"}`}>
+						<span>{notice.text}</span>
+						<button onClick={() => setNotice(null)} className="opacity-60 hover:opacity-100" aria-label="閉じる">
+							✕
+						</button>
+					</div>
+				)}
+				{teamsNeedsLogin && (
+					<div className="flex flex-wrap items-center justify-center gap-3 bg-indigo-50 px-4 py-2 text-xs text-indigo-900">
+						<span>Teams が未接続です。職場または学校の Microsoft アカウントでサインインしてください。</span>
+						<button onClick={inbox.connectTeams} className="rounded-md bg-[#5B5FC7] px-3 py-1 font-semibold text-white hover:opacity-90">
+							Microsoft でサインイン
+						</button>
+					</div>
+				)}
 				<div className="flex min-h-0 flex-1">
 					<div className={`${showThread ? "hidden" : "flex"} w-full md:flex md:w-auto`}>
 						<div className="hidden md:block">
@@ -46,6 +84,8 @@ const Home = () => {
 								onSync={inbox.sync}
 								syncing={inbox.syncing}
 								lastSyncedAt={inbox.lastSyncedAt}
+								onConnectTeams={inbox.connectTeams}
+								onDisconnectTeams={inbox.disconnectTeams}
 							/>
 						</div>
 						<ConversationList
@@ -69,6 +109,7 @@ const Home = () => {
 							{ id: "chatwork", label: "Chatwork" },
 							{ id: "line", label: "LINE" },
 							{ id: "discord", label: "Discord" },
+							{ id: "teams", label: "Teams" },
 						].map((s) => (
 							<button
 								key={s.label}
